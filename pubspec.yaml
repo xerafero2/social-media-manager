@@ -1,5 +1,5 @@
 name: social_media_manager
-description: "A premium social media account manager."
+description: "A premium and highly functional social media account manager."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -12,13 +12,14 @@ dependencies:
   flutter_riverpod: ^2.4.9
   sqflite: ^2.3.0
   path: ^1.8.3
-  shared_preferences: ^2.2.2
-  local_auth: ^2.1.8
   encrypt: ^5.0.3
-  csv: ^5.0.2
   font_awesome_flutter: ^10.7.0
   fl_chart: ^0.65.0
   intl: ^0.19.0
+  otp: ^3.1.2
+  image_picker: ^1.1.2
+  path_provider: ^2.1.2
+  local_auth: ^2.1.8
 
 dev_dependencies:
   flutter_test:

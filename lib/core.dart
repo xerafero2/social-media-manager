@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:csv/csv.dart';
 
 // --- MODELS ---
 class Account {
@@ -14,6 +13,9 @@ class Account {
   final String username;
   final String password;
   final int isDeleted;
+  final int updatedAt;
+  final String? totpKey;
+  final String? customIconPath;
 
   Account({
     this.id,
@@ -21,6 +23,9 @@ class Account {
     required this.username,
     required this.password,
     this.isDeleted = 0,
+    required this.updatedAt,
+    this.totpKey,
+    this.customIconPath,
   });
 
   Map<String, dynamic> toMap() {
@@ -30,6 +35,9 @@ class Account {
       'username': username,
       'password': EncryptionService.encrypt(password),
       'isDeleted': isDeleted,
+      'updatedAt': updatedAt,
+      'totpKey': totpKey,
+      'customIconPath': customIconPath,
     };
   }
 
@@ -40,6 +48,9 @@ class Account {
       username: map['username'],
       password: EncryptionService.decrypt(map['password']),
       isDeleted: map['isDeleted'],
+      updatedAt: map['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
+      totpKey: map['totpKey'],
+      customIconPath: map['customIconPath'],
     );
   }
 }
@@ -58,7 +69,7 @@ class EncryptionService {
     try {
       return _encrypter.decrypt64(base64, iv: _iv);
     } catch (e) {
-      return "ERROR_DECRYPT";
+      return "ERROR";
     }
   }
 }
@@ -86,7 +97,7 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('accounts_v2.db');
+    _database = await _initDB('accounts_v4.db');
     return _database!;
   }
 
@@ -103,7 +114,10 @@ class DatabaseService {
         platform TEXT NOT NULL,
         username TEXT NOT NULL,
         password TEXT NOT NULL,
-        isDeleted INTEGER NOT NULL
+        isDeleted INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        totpKey TEXT,
+        customIconPath TEXT
       )
     ''');
   }
@@ -128,19 +142,14 @@ class DatabaseService {
     final db = await instance.database;
     return await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
   }
-  
-  Future<void> clearAll() async {
-    final db = await instance.database;
-    await db.delete('accounts');
-  }
 }
 
 class DataService {
   static Future<void> exportToClipboard(List<Account> accounts) async {
     List<Map<String, dynamic>> data = accounts.map((a) => {
-      'platform': a.platform,
-      'username': a.username,
-      'password': a.password,
+      'platform': a.platform, 'username': a.username, 'password': a.password,
+      'isDeleted': a.isDeleted, 'updatedAt': a.updatedAt,
+      'totpKey': a.totpKey, 'customIconPath': a.customIconPath
     }).toList();
     
     String jsonString = jsonEncode(data);
@@ -153,15 +162,18 @@ class DataService {
       ClipboardData? data = await Clipboard.getData('text/plain');
       if (data == null || data.text == null || !data.text!.startsWith("SMM_BACKUP::")) return false;
       
-      String encryptedData = data.text!.replaceFirst("SMM_BACKUP::", "");
-      String decryptedJson = EncryptionService.decrypt(encryptedData);
+      String decryptedJson = EncryptionService.decrypt(data.text!.replaceFirst("SMM_BACKUP::", ""));
       List<dynamic> parsed = jsonDecode(decryptedJson);
       
       for (var item in parsed) {
         await DatabaseService.instance.insert(Account(
-          platform: item['platform'],
-          username: item['username'],
-          password: item['password'],
+          platform: item['platform'] ?? 'Unknown',
+          username: item['username'] ?? '',
+          password: item['password'] ?? '',
+          isDeleted: item['isDeleted'] ?? 0,
+          updatedAt: item['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
+          totpKey: item['totpKey'],
+          customIconPath: item['customIconPath'],
         ));
       }
       return true;
@@ -172,6 +184,7 @@ class DataService {
 }
 
 // --- PROVIDERS ---
+final sortProvider = StateProvider<bool>((ref) => true); // True: Newest, False: Oldest
 final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) {
   return AccountNotifier();
 });
@@ -194,13 +207,19 @@ class AccountNotifier extends StateNotifier<List<Account>> {
   }
 
   Future<void> moveToTrash(Account account) async {
-    final updated = Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 1);
-    await updateAccount(updated);
+    await updateAccount(Account(
+      id: account.id, platform: account.platform, username: account.username, 
+      password: account.password, isDeleted: 1, updatedAt: DateTime.now().millisecondsSinceEpoch,
+      totpKey: account.totpKey, customIconPath: account.customIconPath
+    ));
   }
 
   Future<void> restore(Account account) async {
-    final updated = Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 0);
-    await updateAccount(updated);
+    await updateAccount(Account(
+      id: account.id, platform: account.platform, username: account.username, 
+      password: account.password, isDeleted: 0, updatedAt: DateTime.now().millisecondsSinceEpoch,
+      totpKey: account.totpKey, customIconPath: account.customIconPath
+    ));
   }
 
   Future<void> deletePermanent(int id) async {
