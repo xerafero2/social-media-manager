@@ -54,6 +54,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0B0D21),
       body: _pages[_currentIndex],
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF2A2B42), width: 1))),
@@ -178,77 +179,80 @@ class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
       return matchesSearch && matchesTab;
     }).toList();
 
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    style: const TextStyle(color: Colors.white),
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    decoration: InputDecoration(
-                      hintText: "Search accounts...",
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                      filled: true,
-                      fillColor: const Color(0xFF2A2B42),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      style: const TextStyle(color: Colors.white),
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: "Search accounts...",
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xFF2A2B42),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: Icon(_showTrash ? Icons.delete : Icons.delete_outline, color: _showTrash ? Colors.redAccent : Colors.grey),
-                  onPressed: () => setState(() => _showTrash = !_showTrash),
-                )
-              ],
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: Icon(_showTrash ? Icons.delete : Icons.delete_outline, color: _showTrash ? Colors.redAccent : Colors.grey),
+                    onPressed: () => setState(() => _showTrash = !_showTrash),
+                  )
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: displayedAccounts.isEmpty
-                ? Center(child: Text(_showTrash ? "Trash is empty" : "No accounts found", style: const TextStyle(color: Colors.grey)))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: displayedAccounts.length,
-                    itemBuilder: (context, index) {
-                      final acc = displayedAccounts[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: GlassCard(
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF2A2B42),
-                              child: Icon(_getIconForPlatform(acc.platform), color: Colors.white, size: 18),
-                            ),
-                            title: Text(acc.platform, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            subtitle: Text(acc.username, style: const TextStyle(color: Colors.grey)),
-                            trailing: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Colors.white),
-                              color: const Color(0xFF2A2B42),
-                              onSelected: (val) => _handleAction(val, acc),
-                              itemBuilder: (context) => _showTrash 
-                                ? [
-                                    const PopupMenuItem(value: 'restore', child: Text('Restore', style: TextStyle(color: Colors.white))),
-                                    const PopupMenuItem(value: 'perm_delete', child: Text('Delete Permanently', style: TextStyle(color: Colors.redAccent))),
-                                  ]
-                                : [
-                                    const PopupMenuItem(value: 'copy', child: Text('Copy Password', style: TextStyle(color: Colors.white))),
-                                    const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
-                                    const PopupMenuItem(value: 'trash', child: Text('Move to Trash', style: TextStyle(color: Colors.redAccent))),
-                                  ],
+            Expanded(
+              child: displayedAccounts.isEmpty
+                  ? Center(child: Text(_showTrash ? "Trash is empty" : "No accounts found", style: const TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: displayedAccounts.length,
+                      itemBuilder: (context, index) {
+                        final acc = displayedAccounts[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: GlassCard(
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: const Color(0xFF2A2B42),
+                                child: Icon(_getIconForPlatform(acc.platform), color: Colors.white, size: 18),
+                              ),
+                              title: Text(acc.platform, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              subtitle: Text(acc.username, style: const TextStyle(color: Colors.grey)),
+                              trailing: PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, color: Colors.white),
+                                color: const Color(0xFF2A2B42),
+                                onSelected: (val) => _handleAction(val, acc),
+                                itemBuilder: (context) => _showTrash 
+                                  ? [
+                                      const PopupMenuItem(value: 'restore', child: Text('Restore', style: TextStyle(color: Colors.white))),
+                                      const PopupMenuItem(value: 'perm_delete', child: Text('Delete Permanently', style: TextStyle(color: Colors.redAccent))),
+                                    ]
+                                  : [
+                                      const PopupMenuItem(value: 'copy', child: Text('Copy Password', style: TextStyle(color: Colors.white))),
+                                      const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                                      const PopupMenuItem(value: 'trash', child: Text('Move to Trash', style: TextStyle(color: Colors.redAccent))),
+                                    ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: !_showTrash ? FloatingActionButton(
         backgroundColor: const Color(0xFF8C52FF),
@@ -264,6 +268,12 @@ class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
     if (p.contains('insta')) return FontAwesomeIcons.instagram;
     if (p.contains('tik')) return FontAwesomeIcons.tiktok;
     if (p.contains('x') || p.contains('twit')) return FontAwesomeIcons.xTwitter;
+    if (p.contains('tele')) return FontAwesomeIcons.telegram;
+    if (p.contains('disc')) return FontAwesomeIcons.discord;
+    if (p.contains('link')) return FontAwesomeIcons.linkedin;
+    if (p.contains('yout')) return FontAwesomeIcons.youtube;
+    if (p.contains('pin')) return FontAwesomeIcons.pinterest;
+    if (p.contains('snap')) return FontAwesomeIcons.snapchat;
     return Icons.person;
   }
 

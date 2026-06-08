@@ -28,7 +28,7 @@ jobs:
     - name: Generate Android System (V2)
       run: flutter create --project-name social_media_manager --org com.example --platforms=android .
 
-    - name: Patch Biometric Configuration
+    - name: Patch Android Configuration
       run: |
         # 1. Mengubah Activity menjadi FragmentActivity untuk local_auth
         cat << 'EOF' > android/app/src/main/kotlin/com/example/social_media_manager/MainActivity.kt
@@ -42,6 +42,9 @@ jobs:
         
         # 2. Menyisipkan Izin Biometrik ke dalam AndroidManifest.xml
         sed -i 's/<application/    <uses-permission android:name="android.permission.USE_BIOMETRIC"\/>\n    <uses-permission android:name="android.permission.USE_FINGERPRINT"\/>\n    <application/g' android/app/src/main/AndroidManifest.xml
+        
+        # 3. Menambahkan versi NDK ke build.gradle.kts untuk kompatibilitas plugin
+        sed -i 's/android {/android {\n    ndkVersion = "27.0.12077973"/g' android/app/build.gradle.kts
 
     - name: Get dependencies
       run: flutter pub get
