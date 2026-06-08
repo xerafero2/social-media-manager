@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -11,7 +12,7 @@ class Account {
   final int? id;
   final String platform;
   final String username;
-  final String password; // Stored encrypted in DB, but decrypted in model
+  final String password;
   final int isDeleted;
 
   Account({
@@ -67,9 +68,9 @@ class SecurityService {
   static Future<bool> authenticateUser() async {
     try {
       final canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      if (!canAuthenticate) return true; // Fallback for dev/emulators
+      if (!canAuthenticate) return true;
       return await auth.authenticate(
-        localizedReason: 'Please authenticate to access your accounts',
+        localizedReason: 'Please authenticate to access your vault',
         options: const AuthenticationOptions(stickyAuth: true),
       );
     } catch (e) {
@@ -85,7 +86,7 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('accounts.db');
+    _database = await _initDB('accounts_v2.db');
     return _database!;
   }
 
@@ -127,15 +128,46 @@ class DatabaseService {
     final db = await instance.database;
     return await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
   }
+  
+  Future<void> clearAll() async {
+    final db = await instance.database;
+    await db.delete('accounts');
+  }
 }
 
-class ExportImportService {
-  static Future<String> exportToCSV(List<Account> accounts) async {
-    List<List<dynamic>> rows = [["Platform", "Username", "Password"]];
-    for (var acc in accounts) {
-      rows.add([acc.platform, acc.username, acc.password]);
+class DataService {
+  static Future<void> exportToClipboard(List<Account> accounts) async {
+    List<Map<String, dynamic>> data = accounts.map((a) => {
+      'platform': a.platform,
+      'username': a.username,
+      'password': a.password,
+    }).toList();
+    
+    String jsonString = jsonEncode(data);
+    String encryptedData = EncryptionService.encrypt(jsonString);
+    await Clipboard.setData(ClipboardData(text: "SMM_BACKUP::$encryptedData"));
+  }
+
+  static Future<bool> importFromClipboard() async {
+    try {
+      ClipboardData? data = await Clipboard.getData('text/plain');
+      if (data == null || data.text == null || !data.text!.startsWith("SMM_BACKUP::")) return false;
+      
+      String encryptedData = data.text!.replaceFirst("SMM_BACKUP::", "");
+      String decryptedJson = EncryptionService.decrypt(encryptedData);
+      List<dynamic> parsed = jsonDecode(decryptedJson);
+      
+      for (var item in parsed) {
+        await DatabaseService.instance.insert(Account(
+          platform: item['platform'],
+          username: item['username'],
+          password: item['password'],
+        ));
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return const ListToCsvConverter().convert(rows);
   }
 }
 
@@ -145,30 +177,30 @@ final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((
 });
 
 class AccountNotifier extends StateNotifier<List<Account>> {
-  AccountNotifier() : super([]) {
-    loadAccounts();
-  }
+  AccountNotifier() : super([]) { loadAccounts(); }
 
   Future<void> loadAccounts() async {
-    final accounts = await DatabaseService.instance.getAllAccounts();
-    state = accounts;
+    state = await DatabaseService.instance.getAllAccounts();
   }
 
   Future<void> addAccount(Account account) async {
     await DatabaseService.instance.insert(account);
     await loadAccounts();
   }
+  
+  Future<void> updateAccount(Account account) async {
+    await DatabaseService.instance.update(account);
+    await loadAccounts();
+  }
 
   Future<void> moveToTrash(Account account) async {
     final updated = Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 1);
-    await DatabaseService.instance.update(updated);
-    await loadAccounts();
+    await updateAccount(updated);
   }
 
   Future<void> restore(Account account) async {
     final updated = Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 0);
-    await DatabaseService.instance.update(updated);
-    await loadAccounts();
+    await updateAccount(updated);
   }
 
   Future<void> deletePermanent(int id) async {
