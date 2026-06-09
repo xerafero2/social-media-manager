@@ -12,26 +12,31 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path_util;
 import 'core.dart';
 
-// --- UI COMPONENTS ---
+// --- UTILITY WIDGETS ---
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
-  final Color? color;
-  const GlassCard({super.key, required this.child, this.padding, this.color});
+  final List<Color>? gradientColors;
+  
+  const GlassCard({super.key, required this.child, this.padding, this.gradientColors});
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color ?? const Color(0xFF1E1E32).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        color: gradientColors == null ? const Color(0xFF1E1E32).withOpacity(0.8) : null,
+        gradient: gradientColors != null ? LinearGradient(colors: gradientColors!, begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: child,
     );
   }
 }
 
+// --- MAIN NAVIGATION SHELL ---
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
   @override
@@ -40,7 +45,12 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  final List<Widget> _pages = [const DashboardScreen(), const AccountsBaseScreen(), const SettingsScreen()];
+  final List<Widget> _pages = [
+    const DashboardScreen(),
+    const AccountsBaseScreen(),
+    const StatisticsScreen(),
+    const SettingsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +58,6 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: const Color(0xFF0B0D21),
       body: _pages[_currentIndex],
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF2A2B42), width: 1))),
         child: BottomNavigationBar(
           backgroundColor: const Color(0xFF0B0D21),
@@ -58,9 +67,10 @@ class _MainScreenState extends State<MainScreen> {
           currentIndex: _currentIndex,
           onTap: (i) => setState(() => _currentIndex = i),
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Beranda'),
-            BottomNavigationBarItem(icon: Icon(Icons.shield_rounded), label: 'Akun'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Pengaturan'),
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
+            BottomNavigationBarItem(icon: Icon(Icons.list_alt_rounded), label: 'Accounts'),
+            BottomNavigationBarItem(icon: Icon(Icons.pie_chart_rounded), label: 'Analytics'),
+            BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Settings'),
           ],
         ),
       ),
@@ -68,7 +78,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// --- BERANDA (DASHBOARD + ANALYTICS) ---
+// --- 1. DASHBOARD ---
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
   @override
@@ -82,104 +92,135 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => _now = DateTime.now()));
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => setState(() => _now = DateTime.now()));
   }
 
   @override
   void dispose() { _timer.cancel(); super.dispose(); }
 
-  Color _getBrandColor(String p) {
-    String pLow = p.toLowerCase();
-    if (pLow.contains('face')) return const Color(0xFF1877F2);
-    if (pLow.contains('insta')) return const Color(0xFFE4405F);
-    if (pLow.contains('goog')) return const Color(0xFFEA4335);
-    if (pLow.contains('tik')) return const Color(0xFF00F2FE);
-    if (pLow.contains('yout')) return const Color(0xFFFF0000);
-    if (pLow.contains('x') || pLow.contains('twit')) return Colors.white;
-    return const Color(0xFF8C52FF);
+  IconData _getPlatformIcon(String platform) {
+    String p = platform.toLowerCase();
+    if (p.contains('face')) return FontAwesomeIcons.facebook;
+    if (p.contains('insta')) return FontAwesomeIcons.instagram;
+    if (p.contains('tik')) return FontAwesomeIcons.tiktok;
+    if (p.contains('x') || p.contains('twit')) return FontAwesomeIcons.xTwitter;
+    if (p.contains('goog')) return FontAwesomeIcons.google;
+    if (p.contains('yout')) return FontAwesomeIcons.youtube;
+    if (p.contains('git')) return FontAwesomeIcons.github;
+    if (p.contains('tele')) return FontAwesomeIcons.telegram;
+    if (p.contains('disc')) return FontAwesomeIcons.discord;
+    if (p.contains('link')) return FontAwesomeIcons.linkedin;
+    return Icons.public;
   }
 
-  IconData _getBrandIcon(String p) {
-    String pLow = p.toLowerCase();
-    if (pLow.contains('face')) return FontAwesomeIcons.facebook;
-    if (pLow.contains('insta')) return FontAwesomeIcons.instagram;
-    if (pLow.contains('tik')) return FontAwesomeIcons.tiktok;
-    if (pLow.contains('goog')) return FontAwesomeIcons.google;
-    if (pLow.contains('yout')) return FontAwesomeIcons.youtube;
-    return Icons.account_circle;
+  Color _getPlatformColor(String platform) {
+    String p = platform.toLowerCase();
+    if (p.contains('face')) return const Color(0xFF1877F2);
+    if (p.contains('insta')) return const Color(0xFFE4405F);
+    if (p.contains('goog')) return const Color(0xFFEA4335);
+    if (p.contains('yout')) return const Color(0xFFFF0000);
+    if (p.contains('link')) return const Color(0xFF0A66C2);
+    if (p.contains('tele')) return const Color(0xFF0088CC);
+    if (p.contains('disc')) return const Color(0xFF5865F2);
+    return Colors.white;
   }
 
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountsProvider);
-    final active = accounts.where((a) => a.isDeleted == 0).toList();
-    
-    Map<String, int> platCount = {};
-    for (var a in active) { platCount[a.platform] = (platCount[a.platform] ?? 0) + 1; }
+    final activeAccounts = accounts.where((a) => a.isDeleted == 0).toList();
+    final trashCount = accounts.where((a) => a.isDeleted == 1).length;
+
+    Map<String, int> platformCount = {};
+    for (var acc in activeAccounts) {
+      platformCount[acc.platform] = (platformCount[acc.platform] ?? 0) + 1;
+    }
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Brankas Saya', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-              IconButton(icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent), onPressed: () => SystemNavigator.pop()),
+              const Text('Social Media Manager', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              IconButton(icon: const Icon(Icons.lock, color: Color(0xFF00E5FF)), onPressed: () => SystemNavigator.pop()),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          
           GlassCard(
-            color: const Color(0xFF1D1E33),
-            padding: const EdgeInsets.all(24),
+            gradientColors: const [Color(0xFF1D1E33), Color(0xFF2A2B42)],
             child: Row(
               children: [
-                const Icon(Icons.timer_rounded, size: 40, color: Color(0xFF8C52FF)),
+                const Icon(Icons.access_time_filled, size: 50, color: Color(0xFF8C52FF)),
                 const SizedBox(width: 20),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(DateFormat('EEEE, d MMM').format(_now), style: const TextStyle(color: Colors.grey)),
-                    Text(DateFormat('HH:mm:ss').format(_now), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const Text('Vault Status: Secured', style: TextStyle(fontSize: 14, color: Colors.white70)),
+                    Text(DateFormat('EEEE, MMM d, yyyy').format(_now), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    Text(DateFormat('HH:mm:ss').format(_now), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2)),
                   ],
-                ),
+                )
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          const Text('Aksi Cepat', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+
+          const Text('Quick Actions', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white70)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _btn(Icons.add_rounded, "Tambah", const Color(0xFF8C52FF), () => showDialog(context: context, builder: (_) => const AccountFormDialog())),
-              _btn(Icons.copy_rounded, "Ekspor", const Color(0xFF00E5FF), () => DataService.exportToClipboard(accounts)),
-              _btn(Icons.auto_fix_high_rounded, "Impor", Colors.orangeAccent, () async {
-                if (await DataService.importFromClipboard()) ref.read(accountsProvider.notifier).load();
+              _buildActionButton(Icons.add, "Add", const Color(0xFF8C52FF), () => _showAccountSheet(context, null)),
+              _buildActionButton(Icons.download, "Export", const Color(0xFF00E5FF), () async {
+                 await DataService.exportToClipboard(ref.read(accountsProvider));
+                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup Copied!"), backgroundColor: Color(0xFF8C52FF)));
               }),
+              _buildActionButton(Icons.upload, "Import", Colors.orangeAccent, () async {
+                 bool ok = await DataService.importFromClipboard();
+                 if (ok) ref.read(accountsProvider.notifier).load();
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? "Data Restored!" : "Failed"), backgroundColor: ok ? Colors.green : Colors.red));
+              }),
+              _buildActionButton(Icons.delete_outline, "Trash ($trashCount)", Colors.redAccent, null),
             ],
           ),
-          const SizedBox(height: 32),
-          const Text('Analisis Akun', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          if (active.isNotEmpty) 
-            SizedBox(
-              height: 180,
-              child: PieChart(PieChartData(centerSpaceRadius: 40, sections: platCount.entries.map((e) => PieChartSectionData(color: _getBrandColor(e.key), value: e.value.toDouble(), radius: 40, title: "")).toList())),
-            ),
           const SizedBox(height: 24),
+
+          Row(
+            children: [
+              Expanded(child: GlassCard(padding: const EdgeInsets.symmetric(vertical: 20), child: Column(children: [
+                const Icon(Icons.people_alt, color: Color(0xFF8C52FF), size: 24), const SizedBox(height: 8),
+                Text(activeAccounts.length.toString(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Total Accounts', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ]))),
+              const SizedBox(width: 16),
+              Expanded(child: GlassCard(padding: const EdgeInsets.symmetric(vertical: 20), child: Column(children: [
+                const Icon(Icons.layers, color: Color(0xFF00E5FF), size: 24), const SizedBox(height: 8),
+                Text(platformCount.keys.length.toString(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Platforms', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ]))),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          const Text('Accounts by Platform', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white70)),
+          const SizedBox(height: 12),
+          if (platformCount.isEmpty) const Text("No platforms added yet.", style: TextStyle(color: Colors.grey)),
           Wrap(
             spacing: 12, runSpacing: 12,
-            children: platCount.entries.map((e) => Container(
-              width: (MediaQuery.of(context).size.width - 72) / 3,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFF1E1E32), borderRadius: BorderRadius.circular(16)),
+            children: platformCount.entries.map((e) => Container(
+              width: (MediaQuery.of(context).size.width - 64) / 3,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              decoration: BoxDecoration(color: const Color(0xFF1E1E32), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05))),
               child: Column(
                 children: [
-                  Icon(_getBrandIcon(e.key), color: _getBrandColor(e.key), size: 28),
-                  const SizedBox(height: 8),
-                  Text(e.key, style: const TextStyle(color: Colors.white, fontSize: 12), maxLines: 1),
-                  Text("${e.value} Akun", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                  Icon(_getPlatformIcon(e.key), color: _getPlatformColor(e.key), size: 28),
+                  const SizedBox(height: 12),
+                  Text(e.key, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text("${e.value} Accounts", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                 ],
               ),
             )).toList(),
@@ -189,19 +230,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _btn(IconData i, String l, Color c, VoidCallback t) => GestureDetector(
-    onTap: t,
-    child: Column(
-      children: [
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: c.withOpacity(0.3))), child: Icon(i, color: c)),
-        const SizedBox(height: 8),
-        Text(l, style: const TextStyle(color: Colors.white, fontSize: 12)),
-      ],
-    ),
-  );
+  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.3))),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  void _showAccountSheet(BuildContext context, Account? accountToEdit) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AccountFormSheet(account: accountToEdit),
+    );
+  }
 }
 
-// --- DAFTAR AKUN (SEGMENTED CONTROL) ---
+// --- 2. ACCOUNTS LIST ---
 class AccountsBaseScreen extends ConsumerStatefulWidget {
   const AccountsBaseScreen({super.key});
   @override
@@ -209,19 +266,26 @@ class AccountsBaseScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
-  String _search = '';
-  int _tab = 0; // 0: Aktif, 1: Sampah
+  String _searchQuery = '';
+  int _currentTab = 0; // 0: Active, 1: Trash
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(accountsProvider);
-    final sort = ref.watch(sortProvider);
-    List<Account> filtered = accounts.where((a) => (a.isDeleted == _tab) && (a.platform.toLowerCase().contains(_search.toLowerCase()))).toList();
+    final allAccounts = ref.watch(accountsProvider);
+    final sortType = ref.watch(sortProvider);
+    
+    List<Account> displayedAccounts = allAccounts.where((a) {
+      final matchesSearch = a.platform.toLowerCase().contains(_searchQuery.toLowerCase()) || a.username.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesSearch && (a.isDeleted == _currentTab);
+    }).toList();
 
-    filtered.sort((a, b) {
-      if (sort == SortType.newest) return b.updatedAt.compareTo(a.updatedAt);
-      if (sort == SortType.az) return a.platform.compareTo(b.platform);
-      return 0;
+    displayedAccounts.sort((a, b) {
+      switch (sortType) {
+        case SortType.newest: return b.updatedAt.compareTo(a.updatedAt);
+        case SortType.oldest: return a.updatedAt.compareTo(b.updatedAt);
+        case SortType.az: return a.platform.toLowerCase().compareTo(b.platform.toLowerCase());
+        case SortType.za: return b.platform.toLowerCase().compareTo(a.platform.toLowerCase());
+      }
     });
 
     return Scaffold(
@@ -230,25 +294,50 @@ class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  TextField(
-                    style: const TextStyle(color: Colors.white),
-                    onChanged: (v) => setState(() => _search = v),
-                    decoration: InputDecoration(
-                      hintText: "Cari Brankas...", prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                      filled: true, fillColor: const Color(0xFF1E1E32), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: TextField(
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                            decoration: InputDecoration(
+                              hintText: "Search accounts...", hintStyle: const TextStyle(color: Colors.grey),
+                              prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                              filled: true, fillColor: const Color(0xFF1E1E32),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<SortType>(
+                        icon: const Icon(Icons.sort, color: Colors.white), color: const Color(0xFF2A2B42),
+                        initialValue: sortType,
+                        onSelected: (val) => ref.read(sortProvider.notifier).state = val,
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: SortType.newest, child: Text('Newest First', style: TextStyle(color: Colors.white))),
+                          const PopupMenuItem(value: SortType.oldest, child: Text('Oldest First', style: TextStyle(color: Colors.white))),
+                          const PopupMenuItem(value: SortType.az, child: Text('A - Z', style: TextStyle(color: Colors.white))),
+                          const PopupMenuItem(value: SortType.za, child: Text('Z - A', style: TextStyle(color: Colors.white))),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
+                  // Segmented Tabs
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(color: const Color(0xFF1E1E32), borderRadius: BorderRadius.circular(12)),
                     child: Row(
                       children: [
-                        _tabBtn(0, "Aktif"),
-                        _tabBtn(1, "Sampah"),
+                        _buildTabButton(0, "Active Accounts"),
+                        _buildTabButton(1, "Trash"),
                       ],
                     ),
                   )
@@ -256,112 +345,233 @@ class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: filtered.length,
-                itemBuilder: (c, i) => AccountCardWidget(key: ValueKey(filtered[i].id), account: filtered[i], isTrash: _tab == 1),
-              ),
-            )
+              child: displayedAccounts.isEmpty
+                  ? Center(child: Text(_currentTab == 1 ? "Trash is empty" : "No accounts found", style: const TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: displayedAccounts.length,
+                      itemBuilder: (context, index) => AccountCardWidget(
+                        key: ValueKey(displayedAccounts[index].id),
+                        account: displayedAccounts[index], 
+                        isTrash: _currentTab == 1
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
-      floatingActionButton: _tab == 0 ? FloatingActionButton(backgroundColor: const Color(0xFF8C52FF), onPressed: () => showDialog(context: context, builder: (_) => const AccountFormDialog()), child: const Icon(Icons.add, color: Colors.white)) : null,
+      floatingActionButton: _currentTab == 0 ? FloatingActionButton(
+        backgroundColor: const Color(0xFF8C52FF),
+        onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (ctx) => const AccountFormSheet()),
+        child: const Icon(Icons.add, color: Colors.white),
+      ) : null,
     );
   }
 
-  Widget _tabBtn(int idx, String label) => Expanded(
-    child: GestureDetector(
-      onTap: () => setState(() => _tab = idx),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: _tab == idx ? const Color(0xFF8C52FF) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-        child: Center(child: Text(label, style: TextStyle(color: _tab == idx ? Colors.white : Colors.grey, fontWeight: FontWeight.bold))),
+  Widget _buildTabButton(int index, String title) {
+    bool isSelected = _currentTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF8C52FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(title, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-// --- CARD AKUN PROFESIONAL ---
+// --- 3. PREMIUM ACCOUNT CARD ---
 class AccountCardWidget extends ConsumerStatefulWidget {
   final Account account;
   final bool isTrash;
   const AccountCardWidget({super.key, required this.account, required this.isTrash});
+
   @override
   ConsumerState<AccountCardWidget> createState() => _AccountCardWidgetState();
 }
 
 class _AccountCardWidgetState extends ConsumerState<AccountCardWidget> {
-  bool _hide = true;
-  String _code = "";
-  double _prog = 0.0;
-  Timer? _t;
+  bool _isObscured = true;
+  late Timer _totpTimer;
+  String _currentTotp = "";
+  double _totpProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _startTotp();
+    _updateTotp();
+    _totpTimer = Timer.periodic(const Duration(seconds: 1), (timer) => _updateTotp());
   }
 
-  void _startTotp() {
-    if (widget.account.totpKey?.isNotEmpty ?? false) {
-      _t = Timer.periodic(const Duration(seconds: 1), (timer) {
+  @override
+  void didUpdateWidget(covariant AccountCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.account.totpKey != widget.account.totpKey) _updateTotp();
+  }
+
+  @override
+  void dispose() { _totpTimer.cancel(); super.dispose(); }
+
+  void _updateTotp() {
+    if (widget.account.totpKey != null && widget.account.totpKey!.isNotEmpty) {
+      try {
         final now = DateTime.now();
+        final time = now.millisecondsSinceEpoch;
+        final secondsRemaining = 30 - (now.second % 30);
         setState(() {
-          _code = OTP.generateTOTPCodeString(widget.account.totpKey!, now.millisecondsSinceEpoch, isGoogle: true);
-          _prog = (30 - (now.second % 30)) / 30.0;
+          _currentTotp = OTP.generateTOTPCodeString(widget.account.totpKey!, time, algorithm: Algorithm.SHA1, isGoogle: true);
+          _totpProgress = secondsRemaining / 30.0;
         });
-      });
+      } catch (e) { setState(() => _currentTotp = "INVALID KEY"); }
     }
   }
 
-  @override
-  void dispose() { _t?.cancel(); super.dispose(); }
+  IconData _getIconForPlatform(String platform) {
+    String p = platform.toLowerCase();
+    if (p.contains('face')) return FontAwesomeIcons.facebook;
+    if (p.contains('insta')) return FontAwesomeIcons.instagram;
+    if (p.contains('tik')) return FontAwesomeIcons.tiktok;
+    if (p.contains('twit') || p.contains('x')) return FontAwesomeIcons.xTwitter;
+    if (p.contains('goog')) return FontAwesomeIcons.google;
+    if (p.contains('yout')) return FontAwesomeIcons.youtube;
+    if (p.contains('git')) return FontAwesomeIcons.github;
+    if (p.contains('link')) return FontAwesomeIcons.linkedin;
+    if (p.contains('tele')) return FontAwesomeIcons.telegram;
+    if (p.contains('disc')) return FontAwesomeIcons.discord;
+    return Icons.account_circle;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final a = widget.account;
-    final imgOk = a.customIconPath != null && File(a.customIconPath!).existsSync();
+    final acc = widget.account;
+    final dateStr = DateFormat('dd MMM yyyy - HH:mm').format(DateTime.fromMillisecondsSinceEpoch(acc.updatedAt));
+    final hasTotp = acc.totpKey != null && acc.totpKey!.isNotEmpty;
+
+    bool hasValidImage = false;
+    if (acc.customIconPath != null && acc.customIconPath!.isNotEmpty) {
+      hasValidImage = File(acc.customIconPath!).existsSync();
+    }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: GlassCard(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                CircleAvatar(radius: 16, backgroundColor: const Color(0xFF2A2B42), backgroundImage: imgOk ? FileImage(File(a.customIconPath!)) : null, child: !imgOk ? Icon(Icons.person, color: Colors.white, size: 16) : null),
-                const SizedBox(width: 12),
-                Expanded(child: Text(a.platform, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                Text(DateFormat('dd/MM').format(DateTime.fromMillisecondsSinceEpoch(a.updatedAt)), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                CircleAvatar(
+                  radius: 20, backgroundColor: const Color(0xFF2A2B42),
+                  backgroundImage: hasValidImage ? FileImage(File(acc.customIconPath!)) : null,
+                  child: !hasValidImage ? Icon(_getIconForPlatform(acc.platform), color: Colors.white, size: 20) : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(acc.platform, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5)),
+                      const SizedBox(height: 2),
+                      Text("Updated: $dateStr", style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    ],
+                  ),
+                ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.grey, size: 18),
-                  onSelected: (v) {
-                    final n = ref.read(accountsProvider.notifier);
-                    if (v == 'trash') n.toTrash(a);
-                    if (v == 'restore') n.restore(a);
-                    if (v == 'delete') n.permDelete(a.id!);
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  color: const Color(0xFF2A2B42),
+                  onSelected: (val) {
+                    final notifier = ref.read(accountsProvider.notifier);
+                    if (val == 'trash') notifier.toTrash(acc);
+                    if (val == 'restore') notifier.restore(acc);
+                    if (val == 'perm_delete') notifier.permDelete(acc.id!);
+                    if (val == 'edit') showModalBottomSheet(context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent, builder: (ctx) => AccountFormSheet(account: acc));
                   },
-                  itemBuilder: (c) => widget.isTrash ? [const PopupMenuItem(value: 'restore', child: Text('Pulihkan')), const PopupMenuItem(value: 'delete', child: Text('Hapus Permanen'))] : [const PopupMenuItem(value: 'trash', child: Text('Hapus'))],
-                )
+                  itemBuilder: (context) => widget.isTrash 
+                    ? [
+                        const PopupMenuItem(value: 'restore', child: Text('Restore', style: TextStyle(color: Colors.white))),
+                        const PopupMenuItem(value: 'perm_delete', child: Text('Delete Permanently', style: TextStyle(color: Colors.redAccent))),
+                      ]
+                    : [
+                        const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                        const PopupMenuItem(value: 'trash', child: Text('Move to Trash', style: TextStyle(color: Colors.redAccent))),
+                      ],
+                ),
               ],
             ),
-            const Divider(color: Color(0xFF2A2B42), height: 20),
-            _row(Icons.alternate_email_rounded, a.username, false),
-            const SizedBox(height: 8),
-            _row(Icons.lock_outline_rounded, a.password, true),
-            if (_code.isNotEmpty) ...[
-              const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(color: const Color(0xFF2A2B42).withOpacity(0.5), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.email_outlined, color: Colors.grey, size: 18),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(acc.username, style: const TextStyle(color: Colors.white, fontSize: 14))),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: acc.username));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Email copied"), backgroundColor: Color(0xFF8C52FF)));
+                    },
+                    child: const Icon(Icons.copy, color: Colors.grey, size: 20),
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(color: const Color(0xFF2A2B42).withOpacity(0.5), borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline, color: Colors.grey, size: 18),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(_isObscured ? "••••••••••••" : acc.password, style: TextStyle(color: Colors.white, fontSize: _isObscured ? 16 : 14, letterSpacing: _isObscured ? 2 : 0))),
+                  GestureDetector(
+                    onTap: () => setState(() => _isObscured = !_isObscured),
+                    child: Icon(_isObscured ? Icons.visibility_off : Icons.visibility, color: Colors.grey, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: acc.password));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password copied"), backgroundColor: Color(0xFF8C52FF)));
+                    },
+                    child: const Icon(Icons.copy, color: Colors.grey, size: 20),
+                  )
+                ],
+              ),
+            ),
+            
+            if (hasTotp) ...[
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFF00E5FF).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: const Color(0xFF00E5FF).withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3))),
                 child: Row(
                   children: [
-                    const Icon(Icons.security_rounded, color: Color(0xFF00E5FF), size: 16),
+                    const Icon(Icons.security, color: Color(0xFF00E5FF), size: 20),
                     const SizedBox(width: 12),
-                    Text(_code, style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, letterSpacing: 3)),
-                    const Spacer(),
-                    SizedBox(width: 12, height: 12, child: CircularProgressIndicator(value: _prog, strokeWidth: 2, color: const Color(0xFF00E5FF))),
+                    Expanded(child: Text(_currentTotp, style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 22, letterSpacing: 4, fontWeight: FontWeight.bold))),
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(value: _totpProgress, strokeWidth: 2, color: const Color(0xFF00E5FF), backgroundColor: Colors.transparent)),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: _currentTotp));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("TOTP Copied!"), backgroundColor: Color(0xFF8C52FF)));
+                      },
+                      child: const Icon(Icons.copy, color: Color(0xFF00E5FF), size: 20),
+                    ),
                   ],
                 ),
               )
@@ -371,108 +581,245 @@ class _AccountCardWidgetState extends ConsumerState<AccountCardWidget> {
       ),
     );
   }
-
-  Widget _row(IconData i, String t, bool p) => Row(
-    children: [
-      Icon(i, color: Colors.grey, size: 14),
-      const SizedBox(width: 10),
-      Expanded(child: Text(p && _hide ? "••••••••" : t, style: const TextStyle(color: Colors.white70, fontSize: 13))),
-      if (p) IconButton(icon: Icon(_hide ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.grey), onPressed: () => setState(() => _hide = !_hide)),
-      IconButton(icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey), onPressed: () => Clipboard.setData(ClipboardData(text: t))),
-    ],
-  );
 }
 
-// --- DIALOG FORM ---
-class AccountFormDialog extends ConsumerStatefulWidget {
+// --- 4. BOTTOM SHEET FORM ---
+class AccountFormSheet extends ConsumerStatefulWidget {
   final Account? account;
-  const AccountFormDialog({super.key, this.account});
+  const AccountFormSheet({super.key, this.account});
   @override
-  ConsumerState<AccountFormDialog> createState() => _AccountFormDialogState();
+  ConsumerState<AccountFormSheet> createState() => _AccountFormSheetState();
 }
 
-class _AccountFormDialogState extends ConsumerState<AccountFormDialog> {
-  final _p = TextEditingController();
-  final _u = TextEditingController();
-  final _s = TextEditingController();
-  final _t = TextEditingController();
-  String? _path;
+class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
+  late TextEditingController _platformCtrl;
+  late TextEditingController _usernameCtrl;
+  late TextEditingController _passwordCtrl;
+  late TextEditingController _totpCtrl;
+  String? _customIconPath;
+
+  final List<Map<String, dynamic>> _presetIcons = [
+    {'name': 'Facebook', 'icon': FontAwesomeIcons.facebook, 'color': const Color(0xFF1877F2)},
+    {'name': 'Instagram', 'icon': FontAwesomeIcons.instagram, 'color': const Color(0xFFE4405F)},
+    {'name': 'Google', 'icon': FontAwesomeIcons.google, 'color': Colors.redAccent},
+    {'name': 'TikTok', 'icon': FontAwesomeIcons.tiktok, 'color': Colors.white},
+    {'name': 'X (Twitter)', 'icon': FontAwesomeIcons.xTwitter, 'color': Colors.white},
+    {'name': 'YouTube', 'icon': FontAwesomeIcons.youtube, 'color': const Color(0xFFFF0000)},
+    {'name': 'LinkedIn', 'icon': FontAwesomeIcons.linkedin, 'color': const Color(0xFF0A66C2)},
+    {'name': 'Github', 'icon': FontAwesomeIcons.github, 'color': Colors.white},
+  ];
 
   @override
   void initState() {
     super.initState();
-    if (widget.account != null) {
-      _p.text = widget.account!.platform; _u.text = widget.account!.username; _s.text = widget.account!.password; _t.text = widget.account!.totpKey ?? ""; _path = widget.account!.customIconPath;
+    _platformCtrl = TextEditingController(text: widget.account?.platform ?? '');
+    _usernameCtrl = TextEditingController(text: widget.account?.username ?? '');
+    _passwordCtrl = TextEditingController(text: widget.account?.password ?? '');
+    _totpCtrl = TextEditingController(text: widget.account?.totpKey ?? '');
+    _customIconPath = widget.account?.customIconPath;
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = path_util.basename(pickedFile.path);
+      final savedImage = await File(pickedFile.path).copy('${directory.path}/$fileName');
+      setState(() { _customIconPath = savedImage.path; _platformCtrl.text = "Custom Account"; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: const Color(0xFF1D1E33),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Tambah Akun", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 20),
-              TextField(controller: _p, decoration: const InputDecoration(labelText: "Platform", labelStyle: TextStyle(color: Colors.grey))),
-              TextField(controller: _u, decoration: const InputDecoration(labelText: "Username", labelStyle: TextStyle(color: Colors.grey))),
-              TextField(controller: _s, decoration: const InputDecoration(labelText: "Password", labelStyle: TextStyle(color: Colors.grey))),
-              TextField(controller: _t, decoration: const InputDecoration(labelText: "TOTP Key (Opsional)", labelStyle: TextStyle(color: Colors.grey))),
-              const SizedBox(height: 24),
-              Row(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1D1E33),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, left: 24, right: 24, top: 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.5), borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 24),
+            Text(widget.account == null ? "Add New Account" : "Edit Account", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 24),
+            
+            SizedBox(
+              height: 60,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
                 children: [
-                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal"))),
-                  Expanded(child: ElevatedButton(onPressed: () {
-                    final acc = Account(id: widget.account?.id, platform: _p.text, username: _u.text, password: _s.text, totpKey: _t.text, customIconPath: _path, updatedAt: DateTime.now().millisecondsSinceEpoch);
-                    if (widget.account == null) ref.read(accountsProvider.notifier).add(acc); else ref.read(accountsProvider.notifier).edit(acc);
-                    Navigator.pop(context);
-                  }, child: const Text("Simpan"))),
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      width: 50, height: 50, margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(color: const Color(0xFF2A2B42), borderRadius: BorderRadius.circular(12), image: _customIconPath != null ? DecorationImage(image: FileImage(File(_customIconPath!)), fit: BoxFit.cover) : null),
+                      child: _customIconPath == null ? const Icon(Icons.add_a_photo, color: Colors.white70) : null,
+                    ),
+                  ),
+                  ..._presetIcons.map((preset) => GestureDetector(
+                    onTap: () { setState(() { _platformCtrl.text = preset['name']; _customIconPath = null; }); },
+                    child: Container(
+                      width: 50, height: 50, margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(color: const Color(0xFF2A2B42), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(preset['icon'], color: preset['color']),
+                    ),
+                  )).toList()
                 ],
-              )
-            ],
-          ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            _buildTextField(_platformCtrl, "Platform Name"),
+            const SizedBox(height: 16),
+            _buildTextField(_usernameCtrl, "Username or Email"),
+            const SizedBox(height: 16),
+            _buildTextField(_passwordCtrl, "Password"),
+            const SizedBox(height: 16),
+            _buildTextField(_totpCtrl, "2FA Secret Key (Optional)"),
+            const SizedBox(height: 32),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8C52FF), padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                onPressed: () {
+                  final acc = Account(id: widget.account?.id, platform: _platformCtrl.text.isEmpty ? 'Unknown' : _platformCtrl.text, username: _usernameCtrl.text, password: _passwordCtrl.text, totpKey: _totpCtrl.text.trim(), customIconPath: _customIconPath, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                  if (widget.account == null) ref.read(accountsProvider.notifier).add(acc);
+                  else ref.read(accountsProvider.notifier).edit(acc);
+                  Navigator.pop(context);
+                },
+                child: const Text("Save Account", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController ctrl, String hint) {
+    return TextField(
+      controller: ctrl, style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: hint, labelStyle: const TextStyle(color: Colors.grey),
+        filled: true, fillColor: const Color(0xFF2A2B42),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
     );
   }
 }
 
-// --- PENGATURAN ---
+// --- 5. ANALYTICS SCREEN ---
+class StatisticsScreen extends ConsumerWidget {
+  const StatisticsScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accounts = ref.watch(accountsProvider).where((a) => a.isDeleted == 0).toList();
+    Map<String, int> platformCount = {};
+    for (var acc in accounts) { platformCount[acc.platform] = (platformCount[acc.platform] ?? 0) + 1; }
+    
+    List<PieChartSectionData> sections = [];
+    int colorIndex = 0;
+    final colors = [const Color(0xFF8C52FF), const Color(0xFF00E5FF), const Color(0xFFE4405F), Colors.orange, Colors.green];
+    platformCount.forEach((key, value) {
+      sections.add(PieChartSectionData(color: colors[colorIndex % colors.length], value: value.toDouble(), title: value.toString(), radius: 50, titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)));
+      colorIndex++;
+    });
+
+    return SafeArea(
+      child: Column(
+        children: [
+          const Padding(padding: EdgeInsets.all(24), child: Align(alignment: Alignment.centerLeft, child: Text('Analytics', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)))),
+          if (accounts.isEmpty) const Expanded(child: Center(child: Text("Not enough data", style: TextStyle(color: Colors.grey)))),
+          if (accounts.isNotEmpty) ...[
+            SizedBox(height: 250, child: PieChart(PieChartData(sectionsSpace: 2, centerSpaceRadius: 60, sections: sections))),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(24), itemCount: platformCount.keys.length,
+                itemBuilder: (context, index) {
+                  String key = platformCount.keys.elementAt(index);
+                  return ListTile(
+                    leading: CircleAvatar(backgroundColor: colors[index % colors.length], radius: 8),
+                    title: Text(key, style: const TextStyle(color: Colors.white)),
+                    trailing: Text(platformCount[key].toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  );
+                },
+              ),
+            )
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+// --- 6. SETTINGS SCREEN ---
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lang = ref.watch(languageProvider);
+    final isIndo = lang == "Bahasa Indonesia";
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('Pengaturan', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(isIndo ? 'Pengaturan' : 'Settings', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 24),
           GlassCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.language_rounded, color: Colors.white),
-                  title: const Text('Bahasa'),
-                  trailing: Text(lang, style: const TextStyle(color: Color(0xFF8C52FF))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  leading: const Icon(Icons.language, color: Colors.white), 
+                  title: Text(isIndo ? 'Bahasa' : 'Language', style: const TextStyle(color: Colors.white)),
+                  trailing: Text(lang, style: const TextStyle(color: Color(0xFF8C52FF), fontWeight: FontWeight.bold)),
                   onTap: () {
-                    ref.read(languageProvider.notifier).state = lang == "English" ? "Bahasa Indonesia" : "English";
+                    ref.read(languageProvider.notifier).state = isIndo ? "English" : "Bahasa Indonesia";
                   },
                 ),
                 const Divider(color: Color(0xFF2A2B42), height: 1),
-                ListTile(leading: const Icon(Icons.cloud_upload_rounded), title: const Text("Ekspor Cadangan"), onTap: () => DataService.exportToClipboard(ref.read(accountsProvider))),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  leading: const Icon(Icons.download, color: Colors.white), 
+                  title: Text(isIndo ? 'Ekspor Cadangan' : 'Export Backup', style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(isIndo ? 'Salin teks brankas terenkripsi' : 'Copy encrypted vault to clipboard', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  onTap: () async {
+                    await DataService.exportToClipboard(ref.read(accountsProvider));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isIndo ? "Cadangan disalin!" : "Backup copied!"), backgroundColor: const Color(0xFF8C52FF)));
+                  },
+                ),
                 const Divider(color: Color(0xFF2A2B42), height: 1),
-                ListTile(leading: const Icon(Icons.lock_reset_rounded), title: const Text("Kunci Aplikasi"), onTap: () => SystemNavigator.pop()),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  leading: const Icon(Icons.upload, color: Colors.white), 
+                  title: Text(isIndo ? 'Impor Cadangan' : 'Import Backup', style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(isIndo ? 'Pulihkan dari teks salinan' : 'Restore from copied text', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  onTap: () async {
+                    bool ok = await DataService.importFromClipboard();
+                    ref.read(accountsProvider.notifier).load();
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? (isIndo ? "Berhasil dipulihkan!" : "Restored successfully!") : (isIndo ? "Data tidak valid" : "Invalid Data")), backgroundColor: ok ? Colors.green : Colors.red));
+                  },
+                ),
               ],
             ),
+          ),
+          const SizedBox(height: 20),
+          GlassCard(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              leading: const Icon(Icons.security, color: Colors.white), 
+              title: Text(isIndo ? 'Kunci Paksa Brankas' : 'Force Lock Vault', style: const TextStyle(color: Colors.white)), 
+              onTap: () => SystemNavigator.pop()
+            )
           )
         ],
       ),
