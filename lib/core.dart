@@ -18,39 +18,24 @@ class Account {
   final String? customIconPath;
 
   Account({
-    this.id,
-    required this.platform,
-    required this.username,
-    required this.password,
-    this.isDeleted = 0,
-    required this.updatedAt,
-    this.totpKey,
-    this.customIconPath,
+    this.id, required this.platform, required this.username, required this.password,
+    this.isDeleted = 0, required this.updatedAt, this.totpKey, this.customIconPath,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'platform': platform,
-      'username': username,
-      'password': EncryptionService.encrypt(password),
-      'isDeleted': isDeleted,
-      'updatedAt': updatedAt,
-      'totpKey': totpKey,
-      'customIconPath': customIconPath,
+      'id': id, 'platform': platform, 'username': username,
+      'password': EncryptionService.encrypt(password), 'isDeleted': isDeleted,
+      'updatedAt': updatedAt, 'totpKey': totpKey, 'customIconPath': customIconPath,
     };
   }
 
   factory Account.fromMap(Map<String, dynamic> map) {
     return Account(
-      id: map['id'],
-      platform: map['platform'],
-      username: map['username'],
-      password: EncryptionService.decrypt(map['password']),
-      isDeleted: map['isDeleted'],
+      id: map['id'], platform: map['platform'], username: map['username'],
+      password: EncryptionService.decrypt(map['password']), isDeleted: map['isDeleted'],
       updatedAt: map['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
-      totpKey: map['totpKey'],
-      customIconPath: map['customIconPath'],
+      totpKey: map['totpKey'], customIconPath: map['customIconPath'],
     );
   }
 }
@@ -60,17 +45,9 @@ class EncryptionService {
   static final _key = enc.Key.fromUtf8('c39812b1a9c8b74c4a6a5d4e3f2a1b9c');
   static final _iv = enc.IV.fromLength(16);
   static final _encrypter = enc.Encrypter(enc.AES(_key));
-
-  static String encrypt(String text) {
-    return _encrypter.encrypt(text, iv: _iv).base64;
-  }
-
+  static String encrypt(String text) => _encrypter.encrypt(text, iv: _iv).base64;
   static String decrypt(String base64) {
-    try {
-      return _encrypter.decrypt64(base64, iv: _iv);
-    } catch (e) {
-      return "ERROR";
-    }
+    try { return _encrypter.decrypt64(base64, iv: _iv); } catch (e) { return "ERROR"; }
   }
 }
 
@@ -80,13 +57,8 @@ class SecurityService {
     try {
       final canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
       if (!canAuthenticate) return true;
-      return await auth.authenticate(
-        localizedReason: 'Please authenticate to access your vault',
-        options: const AuthenticationOptions(stickyAuth: true),
-      );
-    } catch (e) {
-      return false;
-    }
+      return await auth.authenticate(localizedReason: 'Please authenticate to access your vault', options: const AuthenticationOptions(stickyAuth: true));
+    } catch (e) { return false; }
   }
 }
 
@@ -110,14 +82,9 @@ class DatabaseService {
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        platform TEXT NOT NULL,
-        username TEXT NOT NULL,
-        password TEXT NOT NULL,
-        isDeleted INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL,
-        totpKey TEXT,
-        customIconPath TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT NOT NULL, username TEXT NOT NULL,
+        password TEXT NOT NULL, isDeleted INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+        totpKey TEXT, customIconPath TEXT
       )
     ''');
   }
@@ -148,82 +115,44 @@ class DataService {
   static Future<void> exportToClipboard(List<Account> accounts) async {
     List<Map<String, dynamic>> data = accounts.map((a) => {
       'platform': a.platform, 'username': a.username, 'password': a.password,
-      'isDeleted': a.isDeleted, 'updatedAt': a.updatedAt,
-      'totpKey': a.totpKey, 'customIconPath': a.customIconPath
+      'isDeleted': a.isDeleted, 'updatedAt': a.updatedAt, 'totpKey': a.totpKey, 'customIconPath': a.customIconPath
     }).toList();
-    
-    String jsonString = jsonEncode(data);
-    String encryptedData = EncryptionService.encrypt(jsonString);
-    await Clipboard.setData(ClipboardData(text: "SMM_BACKUP::$encryptedData"));
+    await Clipboard.setData(ClipboardData(text: "SMM_BACKUP::${EncryptionService.encrypt(jsonEncode(data))}"));
   }
 
   static Future<bool> importFromClipboard() async {
     try {
       ClipboardData? data = await Clipboard.getData('text/plain');
       if (data == null || data.text == null || !data.text!.startsWith("SMM_BACKUP::")) return false;
-      
-      String decryptedJson = EncryptionService.decrypt(data.text!.replaceFirst("SMM_BACKUP::", ""));
-      List<dynamic> parsed = jsonDecode(decryptedJson);
-      
+      List<dynamic> parsed = jsonDecode(EncryptionService.decrypt(data.text!.replaceFirst("SMM_BACKUP::", "")));
       for (var item in parsed) {
         await DatabaseService.instance.insert(Account(
-          platform: item['platform'] ?? 'Unknown',
-          username: item['username'] ?? '',
-          password: item['password'] ?? '',
-          isDeleted: item['isDeleted'] ?? 0,
-          updatedAt: item['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
-          totpKey: item['totpKey'],
-          customIconPath: item['customIconPath'],
+          platform: item['platform'] ?? 'Unknown', username: item['username'] ?? '', password: item['password'] ?? '',
+          isDeleted: item['isDeleted'] ?? 0, updatedAt: item['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
+          totpKey: item['totpKey'], customIconPath: item['customIconPath'],
         ));
       }
       return true;
-    } catch (e) {
-      return false;
-    }
+    } catch (e) { return false; }
   }
 }
 
 // --- PROVIDERS ---
-final sortProvider = StateProvider<bool>((ref) => true); // True: Newest, False: Oldest
-final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) {
-  return AccountNotifier();
-});
+enum SortType { newest, oldest, az, za }
+final sortProvider = StateProvider<SortType>((ref) => SortType.newest);
+
+final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) => AccountNotifier());
 
 class AccountNotifier extends StateNotifier<List<Account>> {
   AccountNotifier() : super([]) { loadAccounts(); }
-
-  Future<void> loadAccounts() async {
-    state = await DatabaseService.instance.getAllAccounts();
-  }
-
-  Future<void> addAccount(Account account) async {
-    await DatabaseService.instance.insert(account);
-    await loadAccounts();
-  }
-  
-  Future<void> updateAccount(Account account) async {
-    await DatabaseService.instance.update(account);
-    await loadAccounts();
-  }
-
+  Future<void> loadAccounts() async { state = await DatabaseService.instance.getAllAccounts(); }
+  Future<void> addAccount(Account account) async { await DatabaseService.instance.insert(account); await loadAccounts(); }
+  Future<void> updateAccount(Account account) async { await DatabaseService.instance.update(account); await loadAccounts(); }
   Future<void> moveToTrash(Account account) async {
-    await updateAccount(Account(
-      id: account.id, platform: account.platform, username: account.username, 
-      password: account.password, isDeleted: 1, updatedAt: DateTime.now().millisecondsSinceEpoch,
-      totpKey: account.totpKey, customIconPath: account.customIconPath
-    ));
+    await updateAccount(Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 1, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: account.totpKey, customIconPath: account.customIconPath));
   }
-
   Future<void> restore(Account account) async {
-    await updateAccount(Account(
-      id: account.id, platform: account.platform, username: account.username, 
-      password: account.password, isDeleted: 0, updatedAt: DateTime.now().millisecondsSinceEpoch,
-      totpKey: account.totpKey, customIconPath: account.customIconPath
-    ));
+    await updateAccount(Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 0, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: account.totpKey, customIconPath: account.customIconPath));
   }
-
-  Future<void> deletePermanent(int id) async {
-    await DatabaseService.instance.deletePermanent(id);
-    await loadAccounts();
-  }
+  Future<void> deletePermanent(int id) async { await DatabaseService.instance.deletePermanent(id); await loadAccounts(); }
 }
