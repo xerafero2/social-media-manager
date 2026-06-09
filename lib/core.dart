@@ -6,6 +6,11 @@ import 'package:local_auth/local_auth.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
+// --- PROVIDERS ---
+final languageProvider = StateProvider<String>((ref) => "Bahasa Indonesia");
+enum SortType { newest, oldest, az, za }
+final sortProvider = StateProvider<SortType>((ref) => SortType.newest);
+
 // --- MODELS ---
 class Account {
   final int? id;
@@ -40,7 +45,6 @@ class Account {
   }
 }
 
-// --- SERVICES ---
 class EncryptionService {
   static final _key = enc.Key.fromUtf8('c39812b1a9c8b74c4a6a5d4e3f2a1b9c');
   static final _iv = enc.IV.fromLength(16);
@@ -55,9 +59,9 @@ class SecurityService {
   static final LocalAuthentication auth = LocalAuthentication();
   static Future<bool> authenticateUser() async {
     try {
-      final canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      if (!canAuthenticate) return true;
-      return await auth.authenticate(localizedReason: 'Please authenticate to access your vault', options: const AuthenticationOptions(stickyAuth: true));
+      final can = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (!can) return true;
+      return await auth.authenticate(localizedReason: 'Otentikasi diperlukan', options: const AuthenticationOptions(stickyAuth: true));
     } catch (e) { return false; }
   }
 }
@@ -66,93 +70,42 @@ class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
   DatabaseService._init();
-
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('accounts_v4.db');
+    _database = await openDatabase(join(await getDatabasesPath(), 'accounts_v5.db'), version: 1, onCreate: (db, v) async {
+      await db.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, username TEXT, password TEXT, isDeleted INTEGER, updatedAt INTEGER, totpKey TEXT, customIconPath TEXT)');
+    });
     return _database!;
   }
-
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
-  }
-
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT NOT NULL, username TEXT NOT NULL,
-        password TEXT NOT NULL, isDeleted INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
-        totpKey TEXT, customIconPath TEXT
-      )
-    ''');
-  }
-
-  Future<int> insert(Account account) async {
-    final db = await instance.database;
-    return await db.insert('accounts', account.toMap());
-  }
-
-  Future<List<Account>> getAllAccounts() async {
-    final db = await instance.database;
-    final maps = await db.query('accounts');
-    return maps.map((map) => Account.fromMap(map)).toList();
-  }
-
-  Future<int> update(Account account) async {
-    final db = await instance.database;
-    return db.update('accounts', account.toMap(), where: 'id = ?', whereArgs: [account.id]);
-  }
-
-  Future<int> deletePermanent(int id) async {
-    final db = await instance.database;
-    return await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
-  }
+  Future<int> insert(Account a) async => (await instance.database).insert('accounts', a.toMap());
+  Future<List<Account>> getAll() async => (await (await instance.database).query('accounts')).map((m) => Account.fromMap(m)).toList();
+  Future<int> update(Account a) async => (await instance.database).update('accounts', a.toMap(), where: 'id = ?', whereArgs: [a.id]);
+  Future<int> delete(int id) async => (await instance.database).delete('accounts', where: 'id = ?', whereArgs: [id]);
 }
 
 class DataService {
   static Future<void> exportToClipboard(List<Account> accounts) async {
-    List<Map<String, dynamic>> data = accounts.map((a) => {
-      'platform': a.platform, 'username': a.username, 'password': a.password,
-      'isDeleted': a.isDeleted, 'updatedAt': a.updatedAt, 'totpKey': a.totpKey, 'customIconPath': a.customIconPath
-    }).toList();
+    List<Map<String, dynamic>> data = accounts.map((a) => a.toMap()).toList();
     await Clipboard.setData(ClipboardData(text: "SMM_BACKUP::${EncryptionService.encrypt(jsonEncode(data))}"));
   }
-
   static Future<bool> importFromClipboard() async {
     try {
       ClipboardData? data = await Clipboard.getData('text/plain');
-      if (data == null || data.text == null || !data.text!.startsWith("SMM_BACKUP::")) return false;
+      if (data == null || !data.text!.startsWith("SMM_BACKUP::")) return false;
       List<dynamic> parsed = jsonDecode(EncryptionService.decrypt(data.text!.replaceFirst("SMM_BACKUP::", "")));
-      for (var item in parsed) {
-        await DatabaseService.instance.insert(Account(
-          platform: item['platform'] ?? 'Unknown', username: item['username'] ?? '', password: item['password'] ?? '',
-          isDeleted: item['isDeleted'] ?? 0, updatedAt: item['updatedAt'] ?? DateTime.now().millisecondsSinceEpoch,
-          totpKey: item['totpKey'], customIconPath: item['customIconPath'],
-        ));
-      }
+      for (var item in parsed) { await DatabaseService.instance.insert(Account.fromMap(item)); }
       return true;
     } catch (e) { return false; }
   }
 }
 
-// --- PROVIDERS ---
-enum SortType { newest, oldest, az, za }
-final sortProvider = StateProvider<SortType>((ref) => SortType.newest);
-
-final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) => AccountNotifier());
-
 class AccountNotifier extends StateNotifier<List<Account>> {
-  AccountNotifier() : super([]) { loadAccounts(); }
-  Future<void> loadAccounts() async { state = await DatabaseService.instance.getAllAccounts(); }
-  Future<void> addAccount(Account account) async { await DatabaseService.instance.insert(account); await loadAccounts(); }
-  Future<void> updateAccount(Account account) async { await DatabaseService.instance.update(account); await loadAccounts(); }
-  Future<void> moveToTrash(Account account) async {
-    await updateAccount(Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 1, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: account.totpKey, customIconPath: account.customIconPath));
-  }
-  Future<void> restore(Account account) async {
-    await updateAccount(Account(id: account.id, platform: account.platform, username: account.username, password: account.password, isDeleted: 0, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: account.totpKey, customIconPath: account.customIconPath));
-  }
-  Future<void> deletePermanent(int id) async { await DatabaseService.instance.deletePermanent(id); await loadAccounts(); }
+  AccountNotifier() : super([]) { load(); }
+  Future<void> load() async { state = await DatabaseService.instance.getAll(); }
+  Future<void> add(Account a) async { await DatabaseService.instance.insert(a); await load(); }
+  Future<void> edit(Account a) async { await DatabaseService.instance.update(a); await load(); }
+  Future<void> toTrash(Account a) async { await edit(Account(id: a.id, platform: a.platform, username: a.username, password: a.password, isDeleted: 1, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: a.totpKey, customIconPath: a.customIconPath)); }
+  Future<void> restore(Account a) async { await edit(Account(id: a.id, platform: a.platform, username: a.username, password: a.password, isDeleted: 0, updatedAt: DateTime.now().millisecondsSinceEpoch, totpKey: a.totpKey, customIconPath: a.customIconPath)); }
+  Future<void> permDelete(int id) async { await DatabaseService.instance.delete(id); await load(); }
 }
+final accountsProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) => AccountNotifier());
