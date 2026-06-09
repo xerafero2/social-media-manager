@@ -317,7 +317,11 @@ class _AccountsBaseScreenState extends ConsumerState<AccountsBaseScreen> {
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: displayedAccounts.length,
-                      itemBuilder: (context, index) => AccountCardWidget(account: displayedAccounts[index], isTrash: _showTrash),
+                      itemBuilder: (context, index) => AccountCardWidget(
+                        key: ValueKey(displayedAccounts[index].id), // FIX 1: Memastikan UI tidak tertukar saat disortir
+                        account: displayedAccounts[index], 
+                        isTrash: _showTrash
+                      ),
                     ),
             ),
           ],
@@ -347,21 +351,19 @@ class _AccountCardWidgetState extends ConsumerState<AccountCardWidget> {
   late Timer _totpTimer;
   String _currentTotp = "";
   double _totpProgress = 0.0;
-  bool _hasValidImage = false;
 
   @override
   void initState() {
     super.initState();
-    _checkImage();
     _updateTotp();
     _totpTimer = Timer.periodic(const Duration(seconds: 1), (timer) => _updateTotp());
   }
-  
-  void _checkImage() {
-    if (widget.account.customIconPath != null && widget.account.customIconPath!.isNotEmpty) {
-      if (File(widget.account.customIconPath!).existsSync()) {
-        setState(() => _hasValidImage = true);
-      }
+
+  @override
+  void didUpdateWidget(covariant AccountCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.account.totpKey != widget.account.totpKey) {
+      _updateTotp();
     }
   }
 
@@ -400,10 +402,16 @@ class _AccountCardWidgetState extends ConsumerState<AccountCardWidget> {
     final dateStr = DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(acc.updatedAt));
     final hasTotp = acc.totpKey != null && acc.totpKey!.isNotEmpty;
 
+    // FIX 2: Validasi eksistensi gambar langsung saat akan di-render (Anti bug nge-blank)
+    bool hasValidImage = false;
+    if (acc.customIconPath != null && acc.customIconPath!.isNotEmpty) {
+      hasValidImage = File(acc.customIconPath!).existsSync();
+    }
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12), // Margin lebih rapat
+      padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Padding dikurangi agar tidak memakan layar
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -412,8 +420,8 @@ class _AccountCardWidgetState extends ConsumerState<AccountCardWidget> {
               children: [
                 CircleAvatar(
                   radius: 14, backgroundColor: Colors.transparent,
-                  backgroundImage: _hasValidImage ? FileImage(File(acc.customIconPath!)) : null,
-                  child: !_hasValidImage ? Icon(_getIconForPlatform(acc.platform), color: Colors.white, size: 16) : null,
+                  backgroundImage: hasValidImage ? FileImage(File(acc.customIconPath!)) : null,
+                  child: !hasValidImage ? Icon(_getIconForPlatform(acc.platform), color: Colors.white, size: 16) : null,
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(acc.platform, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
